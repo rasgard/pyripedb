@@ -1,6 +1,11 @@
 import requests, logging
+from requests.auth import HTTPProxyAuth
 from . import logger as parent_logger
 from . objects import object_from_json, empty_object
+
+class StatusException(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 logger = parent_logger.getChild('rest')
 
@@ -11,29 +16,35 @@ class RestApi():
     _password = None
     _templates = {}
 
-    def __init__(self, base_url = None, source = None, mntner = None, password = None, cache_timeout = 300):
+    def __init__(self, base_url = None, source = None, mntner = None, password = None, cache_timeout = 300, proxies = None, dryrun = False ):
         if base_url is not None:
             self._base_url = base_url
         if source is not None:
             self._source = source
+        self.proxies = proxies
         self._mntner = mntner
         self._password = password
+        self.dryrun = dryrun
         self._writable = mntner is not None and password is not None
         if cache_timeout is not None:
             import requests_cache
             from datetime import timedelta
             expire_after = timedelta(seconds=cache_timeout)
             requests_cache.install_cache(expire_after=expire_after)
-    
+
+
     def is_writable(self):
         return self._writable
     
     def _post(self, object_type, object_data):
+    
+
         q = requests.post(
             url=f'{self._base_url}/{self._source}/{object_type}',
             headers = {'Accept': 'application/json'},
-            params = {'password': self._password},
-            json = object_data
+            params = {'dry-run': self.dryrun,'password': self._password},         
+            json = object_data,
+            proxies = self.proxies
         )
         if q.status_code == 200:
             return q.json()['objects']['object'][0]
@@ -41,10 +52,12 @@ class RestApi():
             logger.debug({'code': q.status_code, 'data': q.content})
             raise ValueError
     def _delete(self, object_type, id):
+
         q = requests.delete(
             url=f'{self._base_url}/{self._source}/{object_type}/{id}',
             headers = {'Accept': 'application/json'},
-            params = {'password': self._password}
+            params = {'dry-run': self.dryrun,'password': self._password},   
+            proxies = self.proxies
         )
         if q.status_code == 200:
             return q.json()['objects']['object'][0]
@@ -53,10 +66,12 @@ class RestApi():
             raise ValueError
     
     def _put(self, object_type, id, object_data):
+
         q = requests.put(
             url=f'{self._base_url}/{self._source}/{object_type}/{id}',
             headers = {'Accept': 'application/json'},
-            params = {'password': self._password},
+            params = {'dry-run': self.dryrun,'password': self._password},
+            proxies = self.proxies,
             json = object_data
         )
         if q.status_code == 200:
@@ -69,7 +84,8 @@ class RestApi():
         if object_type not in self._templates:
             q = requests.get(
                 url=f'{self._base_url}/metadata/templates/{object_type}',
-                headers = {'Accept': 'application/json'}
+                headers = {'Accept': 'application/json'},
+                proxies = self.proxies
             )
             if q.status_code == 404:
                 # not found
@@ -82,9 +98,11 @@ class RestApi():
         return self._templates[object_type]
 
     def get_url_json(self, url):
+
         q = requests.get(
             url = url,
-            headers = {'Accept': 'application/json'}
+            headers = {'Accept': 'application/json'},
+            proxies = self.proxies
         )
         if q.status_code == 404:
             # not found
@@ -113,7 +131,8 @@ class RestApi():
         q = requests.get(
             url=f'{self._base_url}/search',
             params = params,
-            headers = {'Accept': 'application/json'}
+            headers = {'Accept': 'application/json'},
+            proxies = self.proxies
         )
         if q.status_code == 404:
             # not found

@@ -369,6 +369,10 @@ class Route(RipeObject):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
 
+class Domain(RipeObject):
+  def __init__(self,*args,**kwargs):
+    super().__init__(*args,**kwargs)
+
 object_types = {
     'mntner': Maintainer,
     'role': Role,
@@ -378,4 +382,5 @@ object_types = {
     'route': Route,
     'route6': Route,
     'inetnum': InetNum,
+    'domain': Domain,
 }
